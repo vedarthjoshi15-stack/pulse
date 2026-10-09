@@ -26,6 +26,7 @@ def client():
     app.dependency_overrides[get_db] = override_get_db
     yield TestClient(app)
     app.dependency_overrides.clear()
+    engine.dispose()
 
 
 def test_health(client):

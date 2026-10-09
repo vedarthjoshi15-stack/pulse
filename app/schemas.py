@@ -18,3 +18,32 @@ class MonitorOut(BaseModel):
     interval_seconds: int
     is_active: bool
     created_at: datetime
+
+
+class CheckResultOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    monitor_id: int
+    status_code: int | None
+    response_ms: float | None
+    is_up: bool
+    error: str | None
+    checked_at: datetime
+
+
+class IncidentOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    monitor_id: int
+    started_at: datetime
+    resolved_at: datetime | None
+
+
+class UptimeOut(BaseModel):
+    monitor_id: int
+    window_hours: int
+    total_checks: int
+    uptime_percent: float | None
+    avg_response_ms: float | None
