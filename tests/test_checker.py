@@ -83,3 +83,26 @@ def test_run_checks_respects_interval(session_factory):
     assert asyncio.run(go()) == (1, 0)  # second run: not due yet
     with session_factory() as db:
         assert len(db.scalars(select(CheckResult)).all()) == 1
+
+
+def test_alert_sent_when_monitor_goes_down(session_factory, monkeypatch):
+    monkeypatch.setenv("DISCORD_WEBHOOK_URL", "https://discord.test/hook")
+    alerts = []
+
+    def handler(request):
+        if request.url.host == "discord.test":
+            alerts.append(request)
+            return httpx.Response(204)
+        return httpx.Response(500)  # the monitored site is "down"
+
+    async def go():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            return await run_checks_once(session_factory, client)
+
+    with session_factory() as db:
+        db.add(Monitor(name="Dead", url="https://example.com"))
+        db.commit()
+
+    assert asyncio.run(go()) == 1
+    assert len(alerts) == 1
+    assert b"DOWN" in alerts[0].content

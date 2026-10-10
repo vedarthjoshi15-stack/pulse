@@ -7,6 +7,7 @@ import httpx
 from sqlalchemy import desc, select
 
 from app.models import CheckResult, Incident, Monitor, utcnow
+from app.services.alerts import send_alert
 
 logger = logging.getLogger("pulse.checker")
 
@@ -36,7 +37,7 @@ def record_result(db, monitor_id: int, result: dict) -> str | None:
     """Store a check and manage incidents.
 
     Returns "opened" when a new incident starts, "resolved" when one ends,
-    otherwise None. (Alerts will hook in here later.)
+    otherwise None.
     """
     db.add(CheckResult(monitor_id=monitor_id, **result))
 
@@ -62,6 +63,10 @@ def _as_utc(dt: datetime) -> datetime:
     return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
 
 
+def _describe(result: dict) -> str:
+    return result["error"] or f"HTTP {result['status_code']}"
+
+
 async def run_checks_once(session_factory, client: httpx.AsyncClient) -> int:
     """Check every active monitor that is due, concurrently. Returns how many ran."""
     now = utcnow()
@@ -75,12 +80,14 @@ async def run_checks_once(session_factory, client: httpx.AsyncClient) -> int:
                 .limit(1)
             ).first()
             if last is None or _as_utc(last) + timedelta(seconds=m.interval_seconds) <= now:
-                due.append((m.id, m.url))
+                due.append((m.id, m.name, m.url))
 
-        results = await asyncio.gather(*(check_url(client, url) for _, url in due))
+        results = await asyncio.gather(*(check_url(client, url) for _, _, url in due))
 
-        for (monitor_id, _), result in zip(due, results):
-            record_result(db, monitor_id, result)
+        for (monitor_id, name, url), result in zip(due, results):
+            event = record_result(db, monitor_id, result)
+            if event:
+                await send_alert(client, event, name, url, _describe(result))
     return len(due)
 
 

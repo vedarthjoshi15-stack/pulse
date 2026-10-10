@@ -47,3 +47,10 @@ class UptimeOut(BaseModel):
     total_checks: int
     uptime_percent: float | None
     avg_response_ms: float | None
+
+
+class MonitorUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+    url: HttpUrl | None = None
+    interval_seconds: int | None = Field(default=None, ge=10, le=3600)
+    is_active: bool | None = None

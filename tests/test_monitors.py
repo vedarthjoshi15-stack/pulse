@@ -51,3 +51,25 @@ def test_rejects_invalid_url(client):
 
 def test_missing_monitor_returns_404(client):
     assert client.get("/monitors/999").status_code == 404
+
+
+def test_update_monitor(client):
+    mid = client.post("/monitors", json={"name": "A", "url": "https://example.com"}).json()["id"]
+    res = client.patch(f"/monitors/{mid}", json={"name": "B", "is_active": False})
+    assert res.status_code == 200
+    assert res.json()["name"] == "B"
+    assert res.json()["is_active"] is False
+
+
+def test_update_missing_monitor_returns_404(client):
+    assert client.patch("/monitors/999", json={"name": "X"}).status_code == 404
+
+
+def test_delete_monitor(client):
+    mid = client.post("/monitors", json={"name": "A", "url": "https://example.com"}).json()["id"]
+    assert client.delete(f"/monitors/{mid}").status_code == 204
+    assert client.get(f"/monitors/{mid}").status_code == 404
+
+
+def test_delete_missing_monitor_returns_404(client):
+    assert client.delete("/monitors/999").status_code == 404
