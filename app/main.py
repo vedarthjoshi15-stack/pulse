@@ -5,10 +5,9 @@ from contextlib import asynccontextmanager, suppress
 from fastapi import FastAPI
 
 from app.api import monitors, results
-from app.db import Base, SessionLocal, engine
+from app.db import SessionLocal
 from app.services.checker import worker_loop
 
-Base.metadata.create_all(bind=engine)  # Alembic migrations replace this later
 
 
 @asynccontextmanager
